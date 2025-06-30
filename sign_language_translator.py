@@ -6,10 +6,15 @@ import mediapipe as mp
 import numpy as np
 import pickle
 import pandas as pd
+import pyttsx3
 
 # Load trained model
 with open("gesture_model.pkl", "rb") as f:
     model = pickle.load(f)
+
+# Initialize TTS engine
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)
 
 # Initialize Mediapipe Hands
 mp_hands = mp.solutions.hands
@@ -24,6 +29,8 @@ hands = mp_hands.Hands(
 cap = cv2.VideoCapture(0)
 
 gesture_name = ""
+last_gesture = ""
+sentence = []
 
 while True:
     ret, frame = cap.read()
@@ -49,17 +56,47 @@ while True:
                 landmarks.extend([x, y])
 
         if len(landmarks) == 42:
-            # Create DataFrame with correct column names
             landmarks_df = pd.DataFrame([landmarks])
-
-
             prediction = model.predict(landmarks_df)
             gesture_name = prediction[0]
-            print("Predicted gesture:", gesture_name)
 
+            if gesture_name != last_gesture and gesture_name != "":
+                print("Predicted gesture:", gesture_name)
+
+                if gesture_name == "END":
+                    # Speak the sentence if any words exist
+                    sentence_text = " ".join(sentence)
+                    if sentence_text.strip():
+                        print("Speaking sentence:", sentence_text)
+                        engine.say(sentence_text)
+                        engine.runAndWait()
+                        sentence = []  # Clear after speaking
+                else:
+                    sentence.append(gesture_name)
+
+                last_gesture = gesture_name
+    else:
+        gesture_name = ""
+        last_gesture = ""
+
+    # Display the sentence so far
+    sentence_text = " ".join(sentence)
+    if sentence_text:
+        cv2.putText(frame, f"Sentence: {sentence_text}", (10, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+    else:
+        # Show a placeholder when sentence is empty
+        cv2.putText(frame, f"Sentence: ", (10, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+
+    # Display current gesture
     if gesture_name:
-        cv2.putText(frame, f"Gesture: {gesture_name}", (10, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
+        cv2.putText(frame, f"Gesture: {gesture_name}", (10, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    else:
+        # Clear gesture display if no hand visible
+        cv2.putText(frame, "Gesture: ", (10, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     cv2.imshow("Sign Language Translator", frame)
 

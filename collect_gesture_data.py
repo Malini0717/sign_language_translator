@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import csv
+from collections import defaultdict
 
 # Initialize Mediapipe Hands
 mp_hands = mp.solutions.hands
@@ -13,14 +14,18 @@ hands = mp_hands.Hands(
     min_tracking_confidence=0.5
 )
 
-# Start video capture
 cap = cv2.VideoCapture(0)
 
-gesture_label = "HELLO"  # default label
+gesture_label = None
 
 # Open CSV file for appending
 file = open("gesture_data.csv", mode="a", newline='')
 writer = csv.writer(file)
+
+sample_counts = defaultdict(int)
+feedback_message = ""
+
+print("Press ENTER to change gesture label, or q to quit.")
 
 while True:
     ret, frame = cap.read()
@@ -39,36 +44,42 @@ while True:
             mp_drawing.draw_landmarks(
                 frame, hand_landmarks, mp_hands.HAND_CONNECTIONS
             )
-            
+
             for lm in hand_landmarks.landmark:
                 x = int(lm.x * frame.shape[1])
                 y = int(lm.y * frame.shape[0])
                 landmarks.extend([x, y])
 
-    # Show the current label on screen
-    cv2.putText(frame, f"Current Label: {gesture_label}", (10, 50),
+    # Show current label
+    label_text = f"Current Label: {gesture_label}" if gesture_label else "No Label Selected"
+    cv2.putText(frame, label_text, (10, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+
+    # Show sample counts
+    if gesture_label:
+        count_text = f"Samples Collected: {sample_counts[gesture_label]}"
+        cv2.putText(frame, count_text, (10, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+
+    if feedback_message:
+        cv2.putText(frame, feedback_message, (10, 130),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     cv2.imshow("Collect Gesture Data", frame)
 
     key = cv2.waitKey(1) & 0xFF
 
-    if key == ord('h'):
-        gesture_label = "HELLO"
-        print("Gesture label set to HELLO")
-    elif key == ord('y'):
-        gesture_label = "YES"
-        print("Gesture label set to YES")
-    elif key == ord('n'):
-        gesture_label = "NO"
-        print("Gesture label set to NO")
+    if key == ord('\r') or key == 13:  # Enter key
+        gesture_label = input("Enter new gesture label: ").strip().upper()
+        feedback_message = f"Gesture label set to {gesture_label}"
     elif key == ord('s'):
-        if landmarks and len(landmarks) == 42:
+        if gesture_label and landmarks and len(landmarks) == 42:
             row = landmarks + [gesture_label]
             writer.writerow(row)
-            print(f"Sample saved for gesture: {gesture_label}")
+            sample_counts[gesture_label] += 1
+            feedback_message = f"Sample saved for {gesture_label}"
         else:
-            print("No hand detected to save sample.")
+            feedback_message = "No hand detected or no label set."
     elif key == ord('q'):
         break
 
