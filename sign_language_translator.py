@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import pandas as pd
 import pyttsx3
+import time  # Added for cooldown control
 
 # Load trained model
 with open("gesture_model.pkl", "rb") as f:
@@ -31,6 +32,10 @@ cap = cv2.VideoCapture(0)
 gesture_name = ""
 last_gesture = ""
 sentence = []
+
+# Cooldown logic setup
+last_gesture_time = 0
+cooldown_seconds = 1  # Minimum time between same gestures
 
 while True:
     ret, frame = cap.read()
@@ -60,43 +65,36 @@ while True:
             prediction = model.predict(landmarks_df)
             gesture_name = prediction[0]
 
+            current_time = time.time()
+
             if gesture_name != last_gesture and gesture_name != "":
-                print("Predicted gesture:", gesture_name)
+                if current_time - last_gesture_time > cooldown_seconds:
+                    print("Predicted gesture:", gesture_name)
 
-                if gesture_name == "END":
-                    # Speak the sentence if any words exist
-                    sentence_text = " ".join(sentence)
-                    if sentence_text.strip():
-                        print("Speaking sentence:", sentence_text)
-                        engine.say(sentence_text)
-                        engine.runAndWait()
-                        sentence = []  # Clear after speaking
-                else:
-                    sentence.append(gesture_name)
+                    if gesture_name == "END":
+                        sentence_text = " ".join(sentence)
+                        if sentence_text.strip():
+                            print("Speaking sentence:", sentence_text)
+                            engine.say(sentence_text)
+                            engine.runAndWait()
+                            sentence = []
+                    else:
+                        sentence.append(gesture_name)
 
-                last_gesture = gesture_name
+                    last_gesture = gesture_name
+                    last_gesture_time = current_time
     else:
         gesture_name = ""
         last_gesture = ""
 
     # Display the sentence so far
     sentence_text = " ".join(sentence)
-    if sentence_text:
-        cv2.putText(frame, f"Sentence: {sentence_text}", (10, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-    else:
-        # Show a placeholder when sentence is empty
-        cv2.putText(frame, f"Sentence: ", (10, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+    cv2.putText(frame, f"Sentence: {sentence_text}", (10, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
     # Display current gesture
-    if gesture_name:
-        cv2.putText(frame, f"Gesture: {gesture_name}", (10, 90),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    else:
-        # Clear gesture display if no hand visible
-        cv2.putText(frame, "Gesture: ", (10, 90),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, f"Gesture: {gesture_name}", (10, 90),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     cv2.imshow("Sign Language Translator", frame)
 
