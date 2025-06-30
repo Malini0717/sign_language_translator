@@ -1,10 +1,6 @@
-# Ignore Python cache and compiled files
-__pycache__/
-*.pyc
-
-# Ignore virtual environment folder
 myenv/
-
-# Ignore large or generated files
 gesture_model.pkl
 gesture_data.csv
+*.pkl
+__pycache__/
+*.csv
