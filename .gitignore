@@ -1,0 +1,6 @@
+myenv/
+gesture_model.pkl
+gesture_data.csv
+*.pkl
+__pycache__/
+*.csv
